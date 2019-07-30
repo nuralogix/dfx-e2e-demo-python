@@ -7,27 +7,37 @@ This end-to-end demo includes the following steps:
 * Setting up a DFX API SimpleClient (which handles register license, create and log in user)
 * Creating a new measurement
 * Extracting face data from a video file or webcam input
-* Generating payload chunks from a study file (`.lua` or `.dat` format)
+* Generating payload chunks from a study file
 * Sending payload chunks to API server
 * Subscribing to results and receiving measurement results from the API server
 * Decoding results and displaying them
 * Optional: Saving the payloads and results
 * Optional: Saving the visage facepoints of the input video
 
-This document outlines how to set up and use the dfx end-to-end demo. To see a detailed documentation of the code, please read [dfxexample.md](./dfxexample.md).
+This document outlines how to set up and use the dfx end-to-end demo.
+
+The basic workflow is illustrated:
+
+![workflow](simple-workflow.png)
+
+For more details, please read [dfxexample.md](./dfxexample.md).
 
 ## Setup Requirements
 
-Python 3.6 or above and Git are is required.
+Python 3.6 or above is required.
 
 ### Windows
 
 * Install the latest [64-bit version of Python](https://www.python.org/downloads/windows/).
-* Install [Git](https://git-scm.com/downloads).
+* Install [Git](https://git-scm.com/downloads)
+* Install [CMake](https://cmake.org/)
+* Install [Visual Studio (or Visual Studio C++ build tools)](https://visualstudio.microsoft.com/downloads/)
+
+Please ensure that Python and CMake are added to `PATH`.
 
 ### Ubuntu
 
-You need to ensure you have Python 3.6, it's development headers and `venv` installed. On Ubuntu 18.04:
+You need to ensure you have at least Python 3.6, it's development headers and `venv` installed. On Ubuntu 18.04:
 
 ```bash
 sudo apt-get install python3.6 python3.6-venv python3.6-dev
@@ -52,7 +62,7 @@ sudo apt-get install build-essential cmake libopenblas-dev liblapack-dev  # Need
 
 1. Make sure you have all dependencies above set up.
 
-2. Create a new Python 3.6 virtual environment and activate it.
+2. Create a new Python virtual environment and activate it.
 
     ```bash
     # On Ubuntu
@@ -70,7 +80,7 @@ sudo apt-get install build-essential cmake libopenblas-dev liblapack-dev  # Need
 
    ```bash
     pip install asyncio opencv-python
-    pip install dlib  # This may take a long time to finish on Ubuntu
+    pip install dlib  # This may take a long time to finish
     ```
 
     *Note: On Ubuntu 16.04, installing `dlib` in an existing Python virtual environment that was created before Python 3.6 was installed will create dependency issues due to conflicts between `python3-dev` and `python3.6-dev`.*
