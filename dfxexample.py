@@ -111,6 +111,7 @@ class DfxExtractor():
                            imageSrcPath,
                            faceDetectStrategy,
                            outputPath=None,
+                           resultsPath=None,
                            resolution=None,
                            preTrackedFacesPath=None,
                            chunkDuration=15,
@@ -211,7 +212,7 @@ class DfxExtractor():
         # Subscribe to results
         asyncio.ensure_future(self.dfxapiclient.subscribe_to_results())
         # Decode and display
-        asyncio.ensure_future(self.decode_results())
+        asyncio.ensure_future(self.decode_results(resultsPath))
 
         isMeasurementStarted = False
         startFrameNumber = 0
@@ -353,11 +354,18 @@ class DfxExtractor():
         self.dfxapiclient.clear()
 
     # Decode payload results
-    async def decode_results(self):
+    async def decode_results(self, outputPath):
+        counter = 0
         while not self._complete:
             # Check the queue of received chunks
             if not self.dfxapiclient.received_data.empty():
                 chunk = await self.dfxapiclient.received_data.get()
+
+                # Save results if output folder given
+                if outputPath and outputPath != "":
+                    with open(outputPath + '/result_' + str(counter) + '.bin', 'wb') as f:
+                        f.write(chunk)
+                counter += 1
                 print("\n Results: ")
 
                 # Decode the data
@@ -417,6 +425,7 @@ async def main(args):
     await extractor.doExtraction(imageSrcPath=args.imageSrc,
                                  faceDetectStrategy=args.face_detect,
                                  outputPath=args.save_chunks_folder,
+                                 resultsPath=args.save_results_folder,
                                  resolution=args.resolution,
                                  preTrackedFacesPath=args.faces,
                                  chunkDuration=args.chunklength,
