@@ -557,16 +557,23 @@ self.dfxapiclient.clear()   # Clear cache
 async decode_results(self)
 ```
 
-This method decodes all the results received from the server, in a polling format. Until the program stops, it continuously checks if the queue `self.dfxapiclient.received_data` has content, and if so, it retrieves a chunk of data from the queue.
+This method decodes all the results received from the server, in a polling format. Until the program stops, it continuously checks if the queue `self.dfxapiclient.received_data` has content, and if so, it retrieves a chunk of data from the queue. If prompted, the file is saved as in binary format.
 
 Then, it calls the SDK method `collector.decodeMeasurementResult()` to get the decoded results. The result is a custom object that needs to be processed further.
 
 ```python
 while not self._complete:
+    counter = 0
     # Check the queue of received chunks
     if not self.dfxapiclient.received_data.empty():
         # Get chunk from queue
         chunk = await self.dfxapiclient.received_data.get()
+
+        # Save results if output folder given
+        if outputPath and outputPath != "":
+            with open(outputPath + '/result_' + str(counter) + '.bin', 'wb') as f:
+                f.write(chunk)
+        counter += 1
 
         # Decode the data
         decoded_data = self._collector.decodeMeasurementResult(chunk)
