@@ -2,20 +2,19 @@
 
 This document explains the code in `dfxexample.py`, which is an implementation of the DFX end-to-end workflow, using REST and websockets.
 
-## Overview of Workflow
+## Overview
 
-This complete workflow with data and endpoints is illustrated in the flowchart below:
+This workflow is illustrated in the flowchart below:
 
-![flowchart](detailed-workflow.png)
+![flowchart](workflow.png)
 
 The process starts by creating a DFX API client object (`dfxapiclient.SimpleClient`), and then setting up the user credentials. This is done by registering the DFX `license_key`, creating a new user (if needed), and logging in the user using an email and a password. This generates an API token that is used for all subsequent API calls, which is handled internally by the DFX API client object.
 
 Next, a new measurement is created under the study given by the `study_id`, by calling the API endpoint `measurement.create`. This generates a `measurement_id`, which is handled internally by the DFX API client object.
 
-A video source is loaded (either a video file or webcam input) into the SDK, by a collector object, which then reads its frames and extracts the faces. A payload is generated from the study file (`.lua` or `.dat` format), and payload chunks are generated from the video source. 
+A video source is loaded (either a video file or webcam input) into the SDK, which then reads its frames and extracts the faces. A payload is generated from the study file configuration, and payload chunks are generated from the video source.
 
 The payload chunks are then added to the measurement by calling the `measurement.add_data` API endpoint. The data is analyzed, and then retrieved by calling the `measurement.subscribe_to_results` endpoint. The output is decoded by the SDK. The cycle would continue until the measurement is complete.
-
 
 ## Code Explanation
 
@@ -44,10 +43,9 @@ Before you move onto the actual code, make sure you have a good understanding of
 
 Also, it would be helpful to look up the documentations for the DFX API client and DFX SDK before you read this, as it will help you understand the use cases.
 
-
 ### Helper Functions
 
-**1. `main`**
+#### `main`
 
 ```python
 async main(args:argparse.Namespace)
@@ -85,8 +83,7 @@ await extractor.doExtraction(imageSrcPath=args.imageSrc,
                              user_demographics=args.user_demographics)
 ```
 
-
-**2. `_setup_apiclient`**
+#### `_setup_apiclient`
 
 ```python
 async _setup_apiclient(license_key:str,
@@ -118,10 +115,9 @@ client.create_new_measurement()
 return client
 ```
 
-
 ### `DfxExtractor`
 
-**1. Constructor**
+#### Constructor
 
 The constructor creates a `libdfx.Factory` object to facilitate data collection. It also defines an empty collector object and two queues (`asyncio.Queue`) for reading frames and storing chunks.
 
@@ -144,13 +140,14 @@ def __init__(self):
     self._chunkQueue = asyncio.Queue(5)
 ```
 
+#### `create`
 
-**2. `create`**
 ```python
 @classmethod
 async create(cls)
 ```
-This method provides an alternative way of creating a `DfxExtractor` object. It is needed to ensure that async objects are all created in the same async loop. 
+
+This method provides an alternative way of creating a `DfxExtractor` object. It is needed to ensure that async objects are all created in the same async loop.
 
 ```python
 @classmethod
@@ -159,12 +156,12 @@ async def create(cls):
     return self
 ```
 
-
-**3. `_readFrames`**
+#### `_readFrames`
 
 ```python
 async _readFrames(self, videoCapture:cv2.VideoCapture, rotation:int, mirror:boolean, targetFPS:int)
 ```
+
 This function calls a method `readFrame` from `utils` to get a frame from the video, which then gets put into the queue `self._readerQueue` to wait to be processed. Once the video ends, indicated by the flag `self._cancel`, the value `None` is put in the queue instead to indicate the end. The `read` flag tells the program if this chunk needs to be processed. For the last chunk, it is marked as `False`.
 
 ```python
@@ -174,11 +171,12 @@ while not self._cancel:
 await self._readerQueue.put((False, None))
 ```
 
+#### `_processChunks`
 
-**4. `_processChunks`**
 ```python
 async _processChunks(self, outputFolder:str)
 ```
+
 This is a method for processing every payload chunk. It first retrieves a chunk from the queue `self._chunkQueue`. If the queue is already empty, this method ends.
 
 ```python
@@ -188,6 +186,7 @@ while True:
     if chunk is None:
         break
 ```
+
 It then updates the printout message, saves the payload files if needed (as indicated by `outputFolder`), and sends the payload to the API by calling the method `dfxapiclient.add_chunk`, where `dfxapiclient` is a `dfxapiclient.SimpleClient` object. Finally, the queue `self._chunkQueue` is marked as complete by calling `task_done()`.
 
 ```python
@@ -209,12 +208,12 @@ It then updates the printout message, saves the payload files if needed (as indi
 self._chunkQueue.task_done()
 ```
 
-
-**5. `_getChunk`**
+#### `_getChunk`
 
 ```python
 async _getChunk(self, collector:libdfx.Collector)
 ```
+
 This function retrieves a chunk from the collector (`dfxFactory.Collector`) object, by calling the method `getChunkData()`. The payload is then retrieved by calling the method `.getChunkPayload()`. It is then put in a queue `self._chunkQueue` for processing chunks.
 
 ```python
@@ -227,12 +226,13 @@ else:
     print("Got empty chunk")
 ```
 
+#### `initialize`
 
-**6. `initialize`**
 ```python
 async initialize(self, studyCfgPath:str, dfxclient:dfxapiclient.SimpleClient)
 ```
-This method initializes the DFX extractor by setting up the study, collector, and DFX API client. The study is initialized from the `.lua` or `.dat` file provided by `studyCfgPath`. The collector is set by calling `dfxFactory.createCollector()`.
+
+This method initializes the DFX extractor by setting up the study, collector, and DFX API client. The study is initialized from a `.dat` file provided by `studyCfgPath`. The collector is set by calling `dfxFactory.createCollector()`.
 
 ```python
 # Initialize a study
@@ -254,7 +254,8 @@ print("Created collector")
 self.dfxapiclient = dfxclient
 ```
 
-**7. `doExtraction`**
+#### `doExtraction`
+
 ```python
 async doExtraction(self,
                    imageSrcPath,
@@ -268,7 +269,8 @@ async doExtraction(self,
                    save_faces=False,
                    user_demographics=None)
 ```
-This is the main method that performs the video extraction process. 
+
+This is the main method that performs the video extraction process.
 
 It first creates the json object (dictionary) for saving facepoints. Then it loads the saved face tracking data if it was specified, otherwise it creates a facetracker (`dlib.DlibTracker`) object. It then checks if the camera / webcam is used (camera is usually given as a number as opposed to a string for a video file).
 
@@ -371,7 +373,7 @@ if outputPath is not None and not os.path.exists(outputPath):
 self._cancel = False
 ```
 
-Now, several processes are added into the asynchronous event loop: reading frames, processing chunks (add data and save), subscribe to results, and decode results. The asynchronous io will handle these processes internally, and will run them to completion. The utilization of queues ensure that data can be passed in between the processes asynchronously. 
+Now, several processes are added into the asynchronous event loop: reading frames, processing chunks (add data and save), subscribe to results, and decode results. The asynchronous io will handle these processes internally, and will run them to completion. The utilization of queues ensure that data can be passed in between the processes asynchronously.
 
 ```python
 # Read video frames
@@ -400,7 +402,7 @@ frameNumber = 0
 success = False
 ```
 
-This begins the main loop. Each iteration takes one camera / video frame and processes it. The loop continues until the measurement is complete, as signalled by the `read` flag. 
+This begins the main loop. Each iteration takes one camera / video frame and processes it. The loop continues until the measurement is complete, as signalled by the `read` flag.
 
 ```python
 while True:
@@ -449,7 +451,7 @@ Otherwise, if the pre-tracked facepoints are provided for this video, it just ad
             # Store facepoints for saving if needed
             if save_faces:
                 facepoints["frames"][frameNumber] = jsonFace
-            
+
             face = createDFXFace(self._collector, jsonFace)
             frame.addFace(face)
     else:
@@ -478,7 +480,7 @@ A marker is added to the 1000th frame. The extraction process is done by first d
             break
 ```
 
-Here, the image (with the facetracker) is rendered in a window. The frame number, status, as well as the measurement results are also displayed. 
+Here, the image (with the facetracker) is rendered in a window. The frame number, status, as well as the measurement results are also displayed.
 
 ```python
     # Rendering
@@ -559,11 +561,12 @@ await self.dfxapiclient.shutdown()
 self.dfxapiclient.clear()   # Clear cache
 ```
 
+#### `decode_results`
 
-**8. `decode_results`**
 ```python
-async decode_results(self, outputPath:str)
+async decode_results(self)
 ```
+
 This method decodes all the results received from the server, in a polling format. Until the program stops, it continuously checks if the queue `self.dfxapiclient.received_data` has content, and if so, it retrieves a chunk of data from the queue. If prompted, the file is saved as in binary format.
 
 Then, it calls the SDK method `collector.decodeMeasurementResult()` to get the decoded results. The result is a custom object that needs to be processed further.
@@ -588,7 +591,7 @@ while not self._complete:
         chunk_result = {}   # For storing chunk result
 ```
 
-It then checks if the decoded results contain keys of measurement parameters. If so, for each parameter (key), the raw data is obtained in a `list` format by calling `decoded_data.getMeasurementData(key).getData()`. For display purposes, the mean of each set of raw data is computed. 
+It then checks if the decoded results contain keys of measurement parameters. If so, for each parameter (key), the raw data is obtained in a `list` format by calling `decoded_data.getMeasurementData(key).getData()`. For display purposes, the mean of each set of raw data is computed.
 
 Finally, the queue must be marked as complete by calling `.task_done()`. If the queue is empty, this method will continue polling.
 
@@ -616,12 +619,11 @@ Finally, the queue must be marked as complete by calling `.task_done()`. If the 
 
         # Mark queue as complete
         self.dfxapiclient.received_data.task_done()
-    
+
     # If queue is empty, continue polling
     else:
         await asyncio.sleep(self._signal)      # Polling
 ```
-
 
 ### Call to Main
 
@@ -706,3 +708,4 @@ loop = asyncio.get_event_loop()
 loop.run_until_complete(main(args))
 loop.close()
 ```
+
