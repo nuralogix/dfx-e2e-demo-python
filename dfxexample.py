@@ -117,7 +117,8 @@ class DfxExtractor():
                            chunkDuration=15,
                            videoDuration=60,
                            event_loop=None,
-                           save_faces=False):
+                           save_faces=False,
+                           user_demographics=None):
         """Extract TOI data from `imageSrcPath`.
 
         Arguments:
@@ -191,6 +192,13 @@ class DfxExtractor():
         self._collector.setTargetFPS(targetFPS)
         self._collector.setChunkDurationSeconds(chunkDuration_s)
         self._collector.setNumberChunks(numberChunks)
+
+        # Set user demographics
+        if user_demographics:
+            with open (user_demographics, "r") as f:
+                user_info = json.load(f)
+                for k, v in user_info.items():
+                    self._collector.setProperty(k, str(v))
 
         print("    mode: {}".format(self._dfxFactory.getMode()))
         print("    number chunks: {}".format(self._collector.getNumberChunks()))
@@ -430,7 +438,8 @@ async def main(args):
                                  preTrackedFacesPath=args.faces,
                                  chunkDuration=args.chunklength,
                                  videoDuration=args.videolength,
-                                 save_faces=args.save_facepoints)
+                                 save_faces=args.save_facepoints,
+                                 user_demographics=args.user_demographics)
 
 
 if __name__ == '__main__':
@@ -467,7 +476,11 @@ if __name__ == '__main__':
         "--chunklength",
         help="Length of each video chunk, must be between 5 and 30 seconds",
         default=15)
+
     parser.add_argument("--videolength", help="Total length of video", default=60)
+
+    parser.add_argument("--user_demographics", 
+                        help="Json file that contains user demographics")
 
     parser.add_argument("-r",
                         "--resolution",
