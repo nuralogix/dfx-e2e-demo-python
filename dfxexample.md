@@ -57,15 +57,21 @@ It references a method to set up the DFX API client (discussed below), creates a
 
 ```python
 # Set up DFX API client
-dfxapiclient = await _setup_apiclient(args.license_key,
-                                      args.study_id,
-                                      args.email,
-                                      args.password,
-                                      args.chunklength,
-                                      args.videolength,
-                                      args.server,
-                                      args.measurement_mode,
-                                      args.send_method)
+# Need to wait since sometimes we cannot connect to the API server
+try:
+    dfxapiclient = await asyncio.wait_for(_setup_apiclient(args.license_key, 
+                                                           args.study_id, 
+                                                           args.email, 
+                                                           args.password, 
+                                                           args.chunklength, 
+                                                           args.videolength, 
+                                                           args.server, 
+                                                           args.measurement_mode, 
+                                                           args.send_method), 
+                                                           timeout=20)
+except TimeoutError:
+    raise Exception("Cannot connect to API server. Try again later.")
+
 # Create DFX Extractor object and initialize
 extractor = await DfxExtractor.create()
 await extractor.initialize(studyCfgPath=args.study, dfxclient=dfxapiclient)
@@ -74,11 +80,13 @@ await extractor.initialize(studyCfgPath=args.study, dfxclient=dfxapiclient)
 await extractor.doExtraction(imageSrcPath=args.imageSrc,
                              faceDetectStrategy=args.face_detect,
                              outputPath=args.save_chunks_folder,
+                             resultsPath=args.save_results_folder,
                              resolution=args.resolution,
                              preTrackedFacesPath=args.faces,
                              chunkDuration=args.chunklength,
                              videoDuration=args.videolength,
-                             save_faces=args.save_facepoints)
+                             save_faces=args.save_facepoints,
+                             user_demographics=args.user_demographics)
 ```
 
 #### `_setup_apiclient`
@@ -145,7 +153,7 @@ def __init__(self):
 async create(cls)
 ```
 
-This method provides an alternative way of creating a `DfxExtractor` object. It is needed to ensure that async objects are all created in the same async loop.
+This method provides an alternative way of creating a `DfxExtractor` object. It is needed to ensure that async objects are all created in the same async loop. 
 
 ```python
 @classmethod
@@ -264,10 +272,11 @@ async doExtraction(self,
                    chunkDuration=15,
                    videoDuration=60,
                    event_loop=None,
-                   save_faces=False)
+                   save_faces=False,
+                   user_demographics=None)
 ```
 
-This is the main method that performs the video extraction process.
+This is the main method that performs the video extraction process. 
 
 It first creates the json object (dictionary) for saving facepoints. Then it loads the saved face tracking data if it was specified, otherwise it creates a facetracker (`dlib.DlibTracker`) object. It then checks if the camera / webcam is used (camera is usually given as a number as opposed to a string for a video file).
 
@@ -340,7 +349,7 @@ else:
     videoFileName = os.path.basename(imageSrcPath)
 ```
 
-Some more parameters are calculated, and the configurations for the collector is set. An output path for saving the payload chunks is created.
+Some more parameters are calculated, and the configurations for the collector is set (including user demographics if specified). An output path for saving the payload chunks is created.
 
 ```python
 chunkDuration_s = int(chunkDuration)
@@ -352,6 +361,13 @@ numberChunks = math.ceil(videoDuration_frames / chunkFrameCount)
 self._collector.setTargetFPS(targetFPS)
 self._collector.setChunkDurationSeconds(chunkDuration_s)
 self._collector.setNumberChunks(numberChunks)
+
+# Set user demographics
+if user_demographics:
+    with open (user_demographics, "r") as f:
+        user_info = json.load(f)
+        for k, v in user_info.items():
+            self._collector.setProperty(k, str(v))
 
 print(...)
 ...
@@ -441,7 +457,7 @@ Otherwise, if the pre-tracked facepoints are provided for this video, it just ad
             # Store facepoints for saving if needed
             if save_faces:
                 facepoints["frames"][frameNumber] = jsonFace
-
+            
             face = createDFXFace(self._collector, jsonFace)
             frame.addFace(face)
     else:
@@ -470,7 +486,7 @@ A marker is added to the 1000th frame. The extraction process is done by first d
             break
 ```
 
-Here, the image (with the facetracker) is rendered in a window. The frame number, status, as well as the measurement results are also displayed.
+Here, the image (with the facetracker) is rendered in a window. The frame number, status, as well as the measurement results are also displayed. 
 
 ```python
     # Rendering
@@ -498,7 +514,7 @@ Here, the image (with the facetracker) is rendered in a window. The frame number
         startFrameNumber = frameNumber
 ```
 
-Now that the main loop is finished, here comes the closing process. First, all the queues are cleared (otherwise errors will be raised when program is closed). Then, the facepoints are saved in a json file if prompted. A message is displayed on the video window.
+Now that the main loop is finished, here comes the closing process. First, all the queues are cleared (otherwise errors will be raised when program is closed). Then, the facepoints are saved in a json file if prompted. We then call `dfxapiclient.retrieve_results()` to check the results for this measurement. Finally, a message is displayed on the video window.
 
 ```python
 # Signal read done
@@ -524,6 +540,10 @@ if save_faces:
     fp_file = imageSrcPath + "-faces.json"
     with open(fp_file, 'w') as fp:
         json.dump(facepoints, fp)
+
+# Retrieve results for this measurement
+res = self.dfxapiclient.retrieve_results()
+print(res)
 
 msg = "Collection finished completely - press 'q' to exit" if success else "Collection interrupted or failed - press 'q' again to exit"
 print("\n", msg)
@@ -554,12 +574,12 @@ self.dfxapiclient.clear()   # Clear cache
 #### `decode_results`
 
 ```python
-async decode_results(self)
+async decode_results(self, outputPath:str)
 ```
 
 This method decodes all the results received from the server, in a polling format. Until the program stops, it continuously checks if the queue `self.dfxapiclient.received_data` has content, and if so, it retrieves a chunk of data from the queue. If prompted, the file is saved as in binary format.
 
-Then, it calls the SDK method `collector.decodeMeasurementResult()` to get the decoded results. The result is a custom object that needs to be processed further.
+Then, it calls the SDK method `collector.decodeMeasurementResult()` to get the decoded results. The result is a custom object that needs to be processed further. It calls the method `getErrorCode()` to get the error code for this chunk if there is any.
 
 ```python
 while not self._complete:
@@ -577,11 +597,16 @@ while not self._complete:
 
         # Decode the data
         decoded_data = self._collector.decodeMeasurementResult(chunk)
-
         chunk_result = {}   # For storing chunk result
+
+        # Get error message
+        error_msg = decoded_data.getErrorCode()
+        if error_msg != "OK":
+            print(" Error message: ", error_msg)
+            self._results["Error"] = error_msg
 ```
 
-It then checks if the decoded results contain keys of measurement parameters. If so, for each parameter (key), the raw data is obtained in a `list` format by calling `decoded_data.getMeasurementData(key).getData()`. For display purposes, the mean of each set of raw data is computed.
+It then checks if the decoded results contain keys of measurement parameters. If so, for each parameter (key), the raw data is obtained in a `list` format by calling `decoded_data.getMeasurementData(key).getData()`. For display purposes, the mean of each set of raw data is computed. 
 
 Finally, the queue must be marked as complete by calling `.task_done()`. If the queue is empty, this method will continue polling.
 
@@ -603,13 +628,14 @@ Finally, the queue must be marked as complete by calling `.task_done()`. If the 
                 else:
                     mean = 'N/A'
                 print(key, mean)
+
         else:   # If results are empty
             print("None")
             self._results["Results"] = "None"   # Screen display message
 
         # Mark queue as complete
         self.dfxapiclient.received_data.task_done()
-
+    
     # If queue is empty, continue polling
     else:
         await asyncio.sleep(self._signal)      # Polling
@@ -666,6 +692,9 @@ parser.add_argument("--videolength",
                     help="Total length of video",
                     default=60)
 
+parser.add_argument("--user_demographics", 
+                    help="Json file that contains user demographics")
+
 parser.add_argument("-r",
                     "--resolution",
                     help="Resolution to open camera e.g. 1280x720")
@@ -695,3 +724,4 @@ loop = asyncio.get_event_loop()
 loop.run_until_complete(main(args))
 loop.close()
 ```
+
