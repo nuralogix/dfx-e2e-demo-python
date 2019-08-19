@@ -340,6 +340,10 @@ class DfxExtractor():
             with open(fp_file, 'w') as fp:
                 json.dump(facepoints, fp)
 
+        # Retrieve results for this measurement
+        res = self.dfxapiclient.retrieve_results()
+        print(res)
+
         msg = "Collection finished completely - press 'q' to exit" if success else "Collection interrupted or failed - press 'q' again to exit"
         print("\n", msg)
         await asyncio.sleep(self._signal)
@@ -374,12 +378,19 @@ class DfxExtractor():
                     with open(outputPath + '/result_' + str(counter) + '.bin', 'wb') as f:
                         f.write(chunk)
                 counter += 1
-                print("\n Results: ")
 
                 # Decode the data
                 decoded_data = self._collector.decodeMeasurementResult(chunk)
                 chunk_result = {}
 
+                # Get error message
+                error_msg = decoded_data.getErrorCode()
+                if error_msg != "OK":
+                    print("\n Error message: ", error_msg)
+                    self._results["Error"] = error_msg
+                print("\n Results: ")
+
+                # If there are results (indicated by the keys)
                 if decoded_data.getMeasurementDataKeys():
                     self._results["Results"] = "Success"  # Screen display message
 
@@ -399,6 +410,7 @@ class DfxExtractor():
                 else:
                     print("None")
                     self._results["Results"] = "None"  # Screen display message
+
                 self.dfxapiclient.received_data.task_done()
             else:
                 await asyncio.sleep(self._signal)  # Polling
@@ -424,10 +436,21 @@ async def _setup_apiclient(license_key, study_id, email, password, chunk_length,
 
 
 async def main(args):
-    dfxapiclient = await _setup_apiclient(args.license_key, args.study_id, args.email,
-                                          args.password, args.chunklength,
-                                          args.videolength, args.server,
-                                          args.measurement_mode, args.send_method)
+    # Need to wait since sometimes we cannot connect to the API server
+    try:
+        dfxapiclient = await asyncio.wait_for(_setup_apiclient(args.license_key, 
+                                                               args.study_id, 
+                                                               args.email, 
+                                                               args.password, 
+                                                               args.chunklength, 
+                                                               args.videolength, 
+                                                               args.server, 
+                                                               args.measurement_mode, 
+                                                               args.send_method), 
+                                                               timeout=20)
+    except TimeoutError:
+        raise Exception("Cannot connect to API server. Try again later.")
+
     extractor = await DfxExtractor.create()
     await extractor.initialize(studyCfgPath=args.study, dfxclient=dfxapiclient)
     await extractor.doExtraction(imageSrcPath=args.imageSrc,
@@ -464,7 +487,7 @@ if __name__ == '__main__':
 
     parser.add_argument("--measurement_mode",
                         help="Measurement mode",
-                        choices=["discrete", "streaming", "batch", "video"],
+                        choices=["discrete", "streaming", "video"],
                         default="discrete")
 
     parser.add_argument("--server",
@@ -479,7 +502,7 @@ if __name__ == '__main__':
 
     parser.add_argument("--videolength", help="Total length of video", default=60)
 
-    parser.add_argument("--user_demographics", 
+    parser.add_argument("--user_demographics",
                         help="Json file that contains user demographics")
 
     parser.add_argument("-r",
