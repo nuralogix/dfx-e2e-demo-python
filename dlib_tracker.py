@@ -83,11 +83,7 @@ class DlibTracker():
                     "quality": 1.0
                 }
             faces[str(i)] = {
-<<<<<<< HEAD
                 "id": str(i + 1),
-=======
-                "id": str(i+1),
->>>>>>> 9873cd89fe1a0cc374f8c00cfdcf88ace05af37d
                 "rect.x": rect.left() + x if rect.left() + x > 0 else 0,
                 "rect.y": rect.top() + y if rect.top() + y > 0 else 0,
                 "rect.w": rect.width(),
