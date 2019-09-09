@@ -195,7 +195,7 @@ class DfxExtractor():
 
         # Set user demographics
         if user_demographics:
-            with open (user_demographics, "r") as f:
+            with open(user_demographics, "r") as f:
                 user_info = json.load(f)
                 for k, v in user_info.items():
                     self._collector.setProperty(k, str(v))
@@ -333,7 +333,7 @@ class DfxExtractor():
         self._complete = True
 
         # Save face points if prompted
-        if save_faces:
+        if save_faces and not isCamera:
             print("\nSaving facepoints")
             imageSrcPath = imageSrcPath.strip(".mov").strip(".mp4")
             fp_file = imageSrcPath + "-faces.json"
@@ -363,7 +363,6 @@ class DfxExtractor():
 
         # Shut down DFX API client activities
         await self.dfxapiclient.shutdown()
-        self.dfxapiclient.clear()
 
     # Decode payload results
     async def decode_results(self, outputPath):
@@ -375,6 +374,8 @@ class DfxExtractor():
 
                 # Save results if output folder given
                 if outputPath and outputPath != "":
+                    if not os.path.exists(outputPath):
+                        os.makedirs(outputPath)
                     with open(outputPath + '/result_' + str(counter) + '.bin', 'wb') as f:
                         f.write(chunk)
                 counter += 1
@@ -493,7 +494,7 @@ if __name__ == '__main__':
     parser.add_argument("--server",
                         help="Name of server to use",
                         choices=["qa", "dev", "prod", "prod-cn"],
-                        default="qa")
+                        default="prod")
 
     parser.add_argument(
         "--chunklength",

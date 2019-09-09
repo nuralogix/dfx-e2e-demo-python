@@ -126,3 +126,6 @@ dmypy.json
 .vscode/
 chunks/
 res/
+example.config
+*.txt
+test-env/

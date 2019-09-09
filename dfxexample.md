@@ -568,7 +568,6 @@ cv2.destroyAllWindows()
 
 # Shut down DFX API client activities
 await self.dfxapiclient.shutdown()
-self.dfxapiclient.clear()   # Clear cache
 ```
 
 #### `decode_results`
@@ -591,6 +590,8 @@ while not self._complete:
 
         # Save results if output folder given
         if outputPath and outputPath != "":
+            if not os.path.exists(outputPath):
+                os.makedirs(outputPath)
             with open(outputPath + '/result_' + str(counter) + '.bin', 'wb') as f:
                 f.write(chunk)
         counter += 1
@@ -682,7 +683,7 @@ parser.add_argument("--measurement_mode",
 parser.add_argument("--server",
                     help="Name of server to use",
                     choices=["qa", "dev", "prod", "prod-cn"],
-                    default="qa")
+                    default="prod")
 
 parser.add_argument("--chunklength",
                     help="Length of each video chunk, must be between 5 and 30 seconds",
