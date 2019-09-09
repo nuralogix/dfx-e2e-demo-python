@@ -127,3 +127,5 @@ dmypy.json
 chunks/
 res/
 example.config
+*.txt
+test-env/
