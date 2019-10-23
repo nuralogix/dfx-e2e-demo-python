@@ -108,7 +108,7 @@ sudo apt-get install build-essential cmake libopenblas-dev liblapack-dev  # Need
 
 8. Download the [DFX example data](https://s3.us-east-2.amazonaws.com/nuralogix-assets/dfx-sdk/dfxsdk-example-data.zip) and unzip it. It contains the example video and face-tracking data.
 
-9. Obtain a valid DFX license key, study ID and study configuration file (`.dat`) [from NuraLogix](https://deepaffex.ai/en/developers-api.html).
+9. Obtain a valid DFX license key, study ID and study configuration file [from NuraLogix](https://deepaffex.ai/en/developers-api.html). The license key and study ID can be obtained by logging into [DFX Dashboard](https://dashboard.deepaffex.ai/login). A sample study configuration file (`.dat`) can be obtained by downloading the DFX C++ Windows/macOS/Linux SDK from [here](https://www.deepaffex.ai/en/developers-sdk.html), and is located in dfxsdk/res/models. 
 
 10. Run the demo. To see usage:
 
