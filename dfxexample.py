@@ -185,6 +185,8 @@ class DfxExtractor():
 
         chunkDuration_s = int(chunkDuration)
         KLUDGE = 1  # This kludge to handle a bug in current SDK
+        if dfx.__version__ > "4.3.0":
+            KLUDGE = 0
         chunkFrameCount = math.ceil(chunkDuration_s * targetFPS + KLUDGE)
         numberChunks = math.ceil(videoDuration_frames / chunkFrameCount)
 
@@ -240,6 +242,8 @@ class DfxExtractor():
 
             if not read:
                 # Video ended, so grab what should be the last, possibly truncated chunk
+                if dfx.__version__ > "4.3.0":
+                    self._collector.forceComplete()  # New in libdfx > 4.3.0
                 await self._getChunk(self._collector)
                 success = True
                 break
