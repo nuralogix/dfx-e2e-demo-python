@@ -278,6 +278,7 @@ class DfxExtractor():
                         facepoints["frames"][frameNumber] = jsonFace
                     face = createDFXFace(self._collector, jsonFace)
                     frame.addFace(face)
+                    break  # We only care about the first face
             else:
                 face = createDFXFace(self._collector, preTrackedFaces[str(frameNumber)])
                 frame.addFace(face)
