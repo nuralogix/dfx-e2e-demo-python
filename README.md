@@ -1,3 +1,5 @@
+**This demo is now retired in favour of the new [dfx-demo-py](https://github.com/nuralogix/dfx-demo-py).** 
+
 # DFX Python End to End Demo
 
 This is a demonstration of the complete workflow of DFX SDK and API functionalities.
